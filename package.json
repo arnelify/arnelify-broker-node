@@ -1,0 +1,32 @@
+{
+  "name": "arnelify-broker",
+  "version": "0.5.4",
+  "description": "Minimalistic NodeJS (Bun) addon which is a message broker written in C and C++.",
+  "keywords": [
+    "arnelify",
+    "arnelify-server",
+    "arnelify-server-node",
+    "arnelify server"
+  ],
+  "author": "Arnelify",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "clear && node-gyp configure && node-gyp build",
+    "test": "clear && src/tests/index.ts"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0"
+  },
+  "homepage": "https://github.com/arnelify/arnelify-broker-node#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arnelify/arnelify-broker-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/arnelify/arnelify-broker-node/issues"
+  }
+}
