@@ -1,6 +1,6 @@
 <img src="https://static.wikia.nocookie.net/arnelify/images/c/c8/Arnelify-logo-2024.png/revision/latest?cb=20240701012515" style="width:336px;" alt="Arnelify Logo" />
 
-![Arnelify Broker for NodeJS](https://img.shields.io/badge/Arnelify%20Broker%20for%20NodeJS-0.5.4-yellow) ![C++](https://img.shields.io/badge/C++-2b-red) ![G++](https://img.shields.io/badge/G++-14.2.0-blue) ![NodeJS](https://img.shields.io/badge/NodeJS-22.13.1-green) ![Bun](https://img.shields.io/badge/Bun-1.2.0-green)
+![Arnelify Broker for NodeJS](https://img.shields.io/badge/Arnelify%20Broker%20for%20NodeJS-0.5.8-yellow) ![C++](https://img.shields.io/badge/C++-2b-red) ![G++](https://img.shields.io/badge/G++-14.2.0-blue) ![NodeJS](https://img.shields.io/badge/NodeJS-22.13.1-green) ![Bun](https://img.shields.io/badge/Bun-1.2.0-green)
 
 ## 🚀 About
 **Arnelify® Broker for NodeJS** - is a minimalistic NodeJS (Bun) addon which is a message broker written in C and C++.
@@ -48,14 +48,14 @@ IncludePath for VSCode (optional):
 You can find code examples <a href="https://github.com/arnelify/arnelify-broker-node/blob/main/src/tests/index.ts">here</a>.
 
 ## ⚖️ MIT License
-This software is licensed under the <a href="https://github.com/arnelify/arnelify-broker-cpp/blob/main/LICENSE">MIT License</a>. The original author's name, logo, and the original name of the software must be included in all copies or substantial portions of the software.
+This software is licensed under the <a href="https://github.com/arnelify/arnelify-broker-node/blob/main/LICENSE">MIT License</a>. The original author's name, logo, and the original name of the software must be included in all copies or substantial portions of the software.
 
 ## 🛠️ Contributing
 Join us to help improve this software, fix bugs or implement new functionality. Active participation will help keep the software up-to-date, reliable, and aligned with the needs of its users.
 
 
 ## ⭐ Release Notes
-Version 0.6.1 - NodeJS (Bun) Addon
+Version 0.5.8 - NodeJS (Bun) Addon
 
 We are excited to introduce the Arnelify Broker NodeJS (Bun) addon! Please note that this version is raw and still in active development.
 
