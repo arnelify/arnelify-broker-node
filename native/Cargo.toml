@@ -1,0 +1,30 @@
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name = "arnelify_broker"
+description = "Broker with RPC and UMQT support."
+keywords = ["arnelify", "broker", "datagrams", "tcp2"]
+version = "0.9.6"
+authors = ["Arnelify", "Taron Sarkisyan"]
+license = "MIT"
+repository = "http://github.com/arnelify/arnelify-broker-rust"
+edition = "2024"
+exclude = ["index.node"]
+
+[lib]
+name = "arnelify_broker"
+crate-type = ["cdylib"]
+
+[dependencies]
+brotli = "8.0.2"
+libloading = "0.9.0"
+neon = "1.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+tokio = { version = "1.48.0", features = ["full"] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
