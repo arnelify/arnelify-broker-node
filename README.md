@@ -72,8 +72,11 @@ import {
 
 ```typescript
 import { 
-  UMQT, UMQTBytes, UMQTConsumer, UMQTOpts
-} from "../../build";
+  UMQT, 
+  UMQTBytes, 
+  UMQTConsumer, 
+  UMQTOpts
+} from "arnelify-server";
 
 (function main() {
 
