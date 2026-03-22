@@ -78,7 +78,7 @@ import {
   UMQTOpts
 } from "arnelify-server";
 
-(function main() {
+(async function main() {
 
   const umqt_opts: UMQTOpts = {
     block_size_kb: 64,
