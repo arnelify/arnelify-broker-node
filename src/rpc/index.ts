@@ -26,7 +26,7 @@ type BrokerCtx = Record<string, any>;
 type BrokerBytes = Buffer;
 
 function generate_request_id(): BigInt {
-  const unixtime: string = Date.now().toString() 
+  const unixtime: string = Date.now().toString()
     + process.hrtime.bigint().toString();
   return BigInt(unixtime.slice(0, -2));
 }
@@ -180,12 +180,12 @@ class RPCStream {
   topic: string = "";
   request_id: BigInt = 0n;
 
-  cb_send: (bytes: Buffer) => Promise<void> =
-    async (bytes: Buffer): Promise<void> => {
-      console.log(bytes);
+  cb_send: (topic: string, bytes: Buffer) => Promise<void> =
+    async (topic: string, bytes: Buffer): Promise<void> => {
+      console.log(topic, bytes);
     };
 
-  on_send(cb: (bytes: Buffer) => Promise<void>): void {
+  on_send(cb: (topic: string, bytes: Buffer) => Promise<void>): void {
     this.cb_send = cb;
   }
 
@@ -200,7 +200,7 @@ class RPCStream {
     bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
     const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
     const buff = Buffer.concat([meta, json, bytes]);
-    await this.cb_send(buff);
+    await this.cb_send(this.topic, buff);
   }
 
   async push_bytes(bytes: Buffer, is_reliable: boolean): Promise<void> {
@@ -214,7 +214,7 @@ class RPCStream {
     bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
     const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
     const buff = Buffer.concat([meta, json, bytes]);
-    await this.cb_send(buff);
+    await this.cb_send(this.topic, buff);
   }
 
   async push_json(payload: any, is_reliable: boolean = false): Promise<void> {
@@ -227,16 +227,18 @@ class RPCStream {
 
     const meta = Buffer.from(`${json.length}+0:`, 'utf8');
     const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
-    await this.cb_send(buff);
+    await this.cb_send(this.topic, buff);
   }
 
   async send(topic: string, payload: any, bytes: Buffer, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
+    const req_topic: string = `req:${topic}`;
+
     const response: Record<string, BrokerCtx | BrokerBytes> =
       await new Promise((resolve): void => {
         MAP.set(request_id, resolve);
         const json = Buffer.from(JSON.stringify({
-          topic: topic,
+          topic: req_topic,
           request_id: String(request_id),
           payload,
           reliable: is_reliable
@@ -245,7 +247,7 @@ class RPCStream {
         bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
         const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
         const buff = Buffer.concat([meta, json, bytes]);
-        this.cb_send(buff);
+        this.cb_send(req_topic, buff);
       });
 
     MAP.delete(request_id);
@@ -254,11 +256,13 @@ class RPCStream {
 
   async send_bytes(topic: string, bytes: Buffer, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
+    const req_topic: string = `req:${topic}`;
+
     const response: Record<string, BrokerCtx | BrokerBytes> =
       await new Promise((resolve): void => {
         MAP.set(request_id, resolve);
         const json = Buffer.from(JSON.stringify({
-          topic: topic,
+          topic: req_topic,
           request_id: String(request_id),
           payload: "<bytes>",
           reliable: is_reliable
@@ -267,7 +271,7 @@ class RPCStream {
         bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
         const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
         const buff = Buffer.concat([meta, json, bytes]);
-        this.cb_send(buff);
+        this.cb_send(req_topic, buff);
       });
 
     MAP.delete(request_id);
@@ -276,12 +280,13 @@ class RPCStream {
 
   async send_json(topic: string, payload: any, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
+    const req_topic: string = `req:${topic}`;
 
     const response: Record<string, BrokerCtx | BrokerBytes> =
       await new Promise((resolve): void => {
         MAP.set(request_id, resolve);
         const json = Buffer.from(JSON.stringify({
-          topic: topic,
+          topic: req_topic,
           request_id: String(request_id),
           payload,
           reliable: is_reliable
@@ -289,7 +294,7 @@ class RPCStream {
 
         const meta = Buffer.from(`${json.length}+0:`, 'utf8');
         const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
-        this.cb_send(buff);
+        this.cb_send(req_topic, buff);
       });
 
     MAP.delete(request_id);
@@ -300,7 +305,7 @@ class RPCStream {
     this.request_id = request_id;
   }
 
-  set_topic(topic: string): void {
+  set_response_topic(topic: string): void {
     this.topic = topic;
   }
 }
@@ -345,10 +350,10 @@ class RPC {
         const ctx = req.get_ctx();
         const bytes = req.get_bytes();
         const stream = new RPCStream();
-        stream.set_topic(c_res_topic);
+        stream.set_response_topic(c_res_topic);
         stream.set_request_id(req.get_request_id());
-        stream.on_send(async (bytes: BrokerBytes): Promise<void> => {
-          await this.cb_producer(c_res_topic, bytes);
+        stream.on_send(async (topic: string, bytes: BrokerBytes): Promise<void> => {
+          await this.cb_producer(topic, bytes);
         });
 
         req.reset();
