@@ -4,7 +4,7 @@
 name = "arnelify_broker"
 description = "Broker with RPC and UMQT support."
 keywords = ["arnelify", "broker", "datagrams", "tcp2"]
-version = "0.9.6"
+version = "1.0.3"
 authors = ["Arnelify", "Taron Sarkisyan"]
 license = "MIT"
 repository = "http://github.com/arnelify/arnelify-broker-rust"

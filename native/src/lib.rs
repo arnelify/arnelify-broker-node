@@ -177,7 +177,7 @@ fn umqt_logger(mut cx: FunctionContext) -> JsResult<JsUndefined> {
 
     if let Some(map) = UMQT_UDS_MAP.get() {
       if let Some(uds) = map.lock().unwrap().get(&id) {
-        uds.push("umqt_logger", &args, bytes, true);
+        uds.send("umqt_logger", &args, bytes, true);
       }
     }
   });
@@ -203,7 +203,7 @@ fn umqt_on(mut cx: FunctionContext) -> JsResult<JsUndefined> {
 
     if let Some(map) = UMQT_UDS_MAP.get() {
       if let Some(uds) = map.lock().unwrap().get(&id) {
-        uds.push("umqt_on", &args, bytes, true);
+        uds.send("umqt_on", &args, bytes, true);
       }
     }
   });

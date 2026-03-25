@@ -1,17 +1,17 @@
 // MIT LICENSE
-//
+
 // COPYRIGHT (R) 2025 ARNELIFY. AUTHOR: TARON SARKISYAN
-//
+
 // PERMISSION IS HEREBY GRANTED, FREE OF CHARGE, TO ANY PERSON OBTAINING A COPY
 // OF THIS SOFTWARE AND ASSOCIATED DOCUMENTATION FILES (THE "SOFTWARE"), TO DEAL
 // IN THE SOFTWARE WITHOUT RESTRICTION, INCLUDING WITHOUT LIMITATION THE RIGHTS
 // TO USE, COPY, MODIFY, MERGE, PUBLISH, DISTRIBUTE, SUBLICENSE, AND/OR SELL
 // COPIES OF THE SOFTWARE, AND TO PERMIT PERSONS TO WHOM THE SOFTWARE IS
 // FURNISHED TO DO SO, SUBJECT TO THE FOLLOWING CONDITIONS:
-//
+
 // THE ABOVE COPYRIGHT NOTICE AND THIS PERMISSION NOTICE SHALL BE INCLUDED IN ALL
 // COPIES OR SUBSTANTIAL PORTIONS OF THE SOFTWARE.
-//
+
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -30,7 +30,6 @@ interface UnixDomainSocketOpts {
 };
 
 type UnixDomainSocketCtx = any[];
-type UnixDomainSocketRes = { [key: string]: any };
 
 class UnixDomainSocketReq {
   opts: UnixDomainSocketOpts;
@@ -183,7 +182,7 @@ class UnixDomainSocketStream {
     this.cb_send = cb;
   }
 
-  async push(payload: UnixDomainSocketRes, bytes: Buffer): Promise<void> {
+  async push(payload: Record<string, any>, bytes: Buffer): Promise<void> {
     const json = Buffer.from(JSON.stringify({
       topic: this.topic,
       payload
@@ -205,11 +204,11 @@ type UnixDomainSocketLogger = (level: string, message: string) => Promise<void>;
 
 class UnixDomainSocket {
   opts: UnixDomainSocketOpts;
-  client: any;
+  client: net.Socket | null = null;
   cb_handlers: Record<string, UnixDomainSocketHandler> = {};
 
   cb_logger = async (_level: string, message: string): Promise<void> => {
-    console.log(message);
+    console.log(`[Arnelify Broker]: ${message}`);
   };
 
   constructor(opts: UnixDomainSocketOpts) {
@@ -238,26 +237,38 @@ class UnixDomainSocket {
     const buff = Buffer.concat([meta, json_bytes, bytes]);
 
     return new Promise((resolve, reject) => {
-      this.client.write(buff, (err: any): void => {
-        if (err) reject(err);
-        else resolve();
-      });
+      if (this.client) {
+        this.client.write(buff, (err: any): void => {
+          if (err) reject(err);
+          resolve();
+        });
+      }
     });
   }
 
   async start(): Promise<void> {
+    this.client = net.createConnection(this.opts.socket_path);
+    await new Promise((resolve): void => {
+      if (this.client) {
+        this.client.on('connect', (): void => {
+          resolve(1);
+        });
+      }
+    });
+
     const req: UnixDomainSocketReq = new UnixDomainSocketReq(this.opts);
     const stream: UnixDomainSocketStream = new UnixDomainSocketStream(this.opts);
     stream.on_send(async (bytes: Buffer): Promise<void> => {
       return new Promise((resolve, reject) => {
-        this.client.write(bytes, (err: any): void => {
-          if (err) reject(err);
-          else resolve();
-        });
+        if (this.client) {
+          this.client.write(bytes, (err: any): void => {
+            if (err) reject(err);
+            else resolve();
+          });
+        }
       });
     });
 
-    this.client = net.createConnection(this.opts.socket_path);
     this.client.on('data', async (bytes: Buffer): Promise<void> => {
       req.add(bytes);
 
@@ -294,15 +305,15 @@ class UnixDomainSocket {
   }
 
   async stop(): Promise<void> {
-    this.client.end();
+    if (this.client) {
+      this.client.end();
+    }
   }
 }
 
 export type {
   UnixDomainSocketBytes, UnixDomainSocketCtx, UnixDomainSocketHandler,
-  UnixDomainSocketLogger, UnixDomainSocketOpts, UnixDomainSocketRes,
+  UnixDomainSocketLogger, UnixDomainSocketOpts,
 }
 
-export {
-  UnixDomainSocket, UnixDomainSocketStream,
-}
+export { UnixDomainSocket, UnixDomainSocketStream }

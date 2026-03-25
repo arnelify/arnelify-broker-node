@@ -321,7 +321,7 @@ class RPC {
   consumers: Map<string, BrokerConsumer> = new Map();
 
   cb_logger: RPCLogger = async (_level: string, message: string): Promise<void> => {
-    console.log(message);
+    console.log(`[Arnelify Broker]: ${message}`);
   };
 
   cb_consumer = (topic: string, cb: BrokerConsumer): void => {
@@ -345,6 +345,7 @@ class RPC {
     const req_consumer: BrokerConsumer = async (bytes: BrokerBytes): Promise<void> => {
       const req: RPCReq = new RPCReq();
       req.add(bytes);
+      
       const res: null | string | number = req.read_block();
       if (res === 1) {
         const ctx = req.get_ctx();

@@ -3,8 +3,8 @@ type BrokerBytes = Buffer;
 declare class RPCStream {
     topic: string;
     request_id: BigInt;
-    cb_send: (bytes: Buffer) => Promise<void>;
-    on_send(cb: (bytes: Buffer) => Promise<void>): void;
+    cb_send: (topic: string, bytes: Buffer) => Promise<void>;
+    on_send(cb: (topic: string, bytes: Buffer) => Promise<void>): void;
     push(payload: any, bytes: Buffer, is_reliable?: boolean): Promise<void>;
     push_bytes(bytes: Buffer, is_reliable: boolean): Promise<void>;
     push_json(payload: any, is_reliable?: boolean): Promise<void>;
@@ -12,7 +12,7 @@ declare class RPCStream {
     send_bytes(topic: string, bytes: Buffer, is_reliable?: boolean): Promise<Record<string, BrokerCtx | BrokerBytes>>;
     send_json(topic: string, payload: any, is_reliable?: boolean): Promise<Record<string, BrokerCtx | BrokerBytes>>;
     set_request_id(request_id: BigInt): void;
-    set_topic(topic: string): void;
+    set_response_topic(topic: string): void;
 }
 type RPCAction = (ctx: BrokerCtx, bytes: BrokerBytes, stream: RPCStream) => Promise<void>;
 type RPCLogger = (level: string, message: string) => Promise<void>;

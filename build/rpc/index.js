@@ -1,16 +1,18 @@
 "use strict";
 // MIT LICENSE
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RPCStream = exports.RPC = void 0;
+//
 // COPYRIGHT (R) 2025 ARNELIFY. AUTHOR: TARON SARKISYAN
+//
 // PERMISSION IS HEREBY GRANTED, FREE OF CHARGE, TO ANY PERSON OBTAINING A COPY
 // OF THIS SOFTWARE AND ASSOCIATED DOCUMENTATION FILES (THE "SOFTWARE"), TO DEAL
 // IN THE SOFTWARE WITHOUT RESTRICTION, INCLUDING WITHOUT LIMITATION THE RIGHTS
 // TO USE, COPY, MODIFY, MERGE, PUBLISH, DISTRIBUTE, SUBLICENSE, AND/OR SELL
 // COPIES OF THE SOFTWARE, AND TO PERMIT PERSONS TO WHOM THE SOFTWARE IS
 // FURNISHED TO DO SO, SUBJECT TO THE FOLLOWING CONDITIONS:
+//
 // THE ABOVE COPYRIGHT NOTICE AND THIS PERMISSION NOTICE SHALL BE INCLUDED IN ALL
 // COPIES OR SUBSTANTIAL PORTIONS OF THE SOFTWARE.
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -18,6 +20,8 @@ exports.RPCStream = exports.RPC = void 0;
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RPCStream = exports.RPC = void 0;
 const MAP = new Map();
 function generate_request_id() {
     const unixtime = Date.now().toString()
@@ -152,8 +156,8 @@ class RPCStream {
     constructor() {
         this.topic = "";
         this.request_id = 0n;
-        this.cb_send = async (bytes) => {
-            console.log(bytes);
+        this.cb_send = async (topic, bytes) => {
+            console.log(topic, bytes);
         };
     }
     on_send(cb) {
@@ -169,7 +173,7 @@ class RPCStream {
         bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
         const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
         const buff = Buffer.concat([meta, json, bytes]);
-        await this.cb_send(buff);
+        await this.cb_send(this.topic, buff);
     }
     async push_bytes(bytes, is_reliable) {
         const json = Buffer.from(JSON.stringify({
@@ -181,7 +185,7 @@ class RPCStream {
         bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
         const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
         const buff = Buffer.concat([meta, json, bytes]);
-        await this.cb_send(buff);
+        await this.cb_send(this.topic, buff);
     }
     async push_json(payload, is_reliable = false) {
         const json = Buffer.from(JSON.stringify({
@@ -192,14 +196,15 @@ class RPCStream {
         }));
         const meta = Buffer.from(`${json.length}+0:`, 'utf8');
         const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
-        await this.cb_send(buff);
+        await this.cb_send(this.topic, buff);
     }
     async send(topic, payload, bytes, is_reliable = true) {
         const request_id = generate_request_id();
+        const req_topic = `req:${topic}`;
         const response = await new Promise((resolve) => {
             MAP.set(request_id, resolve);
             const json = Buffer.from(JSON.stringify({
-                topic: topic,
+                topic: req_topic,
                 request_id: String(request_id),
                 payload,
                 reliable: is_reliable
@@ -207,17 +212,18 @@ class RPCStream {
             bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
             const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
             const buff = Buffer.concat([meta, json, bytes]);
-            this.cb_send(buff);
+            this.cb_send(req_topic, buff);
         });
         MAP.delete(request_id);
         return response;
     }
     async send_bytes(topic, bytes, is_reliable = true) {
         const request_id = generate_request_id();
+        const req_topic = `req:${topic}`;
         const response = await new Promise((resolve) => {
             MAP.set(request_id, resolve);
             const json = Buffer.from(JSON.stringify({
-                topic: topic,
+                topic: req_topic,
                 request_id: String(request_id),
                 payload: "<bytes>",
                 reliable: is_reliable
@@ -225,24 +231,25 @@ class RPCStream {
             bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
             const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
             const buff = Buffer.concat([meta, json, bytes]);
-            this.cb_send(buff);
+            this.cb_send(req_topic, buff);
         });
         MAP.delete(request_id);
         return response;
     }
     async send_json(topic, payload, is_reliable = true) {
         const request_id = generate_request_id();
+        const req_topic = `req:${topic}`;
         const response = await new Promise((resolve) => {
             MAP.set(request_id, resolve);
             const json = Buffer.from(JSON.stringify({
-                topic: topic,
+                topic: req_topic,
                 request_id: String(request_id),
                 payload,
                 reliable: is_reliable
             }));
             const meta = Buffer.from(`${json.length}+0:`, 'utf8');
             const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
-            this.cb_send(buff);
+            this.cb_send(req_topic, buff);
         });
         MAP.delete(request_id);
         return response;
@@ -250,7 +257,7 @@ class RPCStream {
     set_request_id(request_id) {
         this.request_id = request_id;
     }
-    set_topic(topic) {
+    set_response_topic(topic) {
         this.topic = topic;
     }
 }
@@ -259,7 +266,7 @@ class RPC {
     constructor() {
         this.consumers = new Map();
         this.cb_logger = async (_level, message) => {
-            console.log(message);
+            console.log(`[Arnelify Broker]: ${message}`);
         };
         this.cb_consumer = (topic, cb) => {
             this.consumers.set(topic, cb);
@@ -285,10 +292,10 @@ class RPC {
                 const ctx = req.get_ctx();
                 const bytes = req.get_bytes();
                 const stream = new RPCStream();
-                stream.set_topic(c_res_topic);
+                stream.set_response_topic(c_res_topic);
                 stream.set_request_id(req.get_request_id());
-                stream.on_send(async (bytes) => {
-                    await this.cb_producer(c_res_topic, bytes);
+                stream.on_send(async (topic, bytes) => {
+                    await this.cb_producer(topic, bytes);
                 });
                 req.reset();
                 // Broker Action

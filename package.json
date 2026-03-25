@@ -1,10 +1,11 @@
 {
   "name": "arnelify-broker",
-  "version": "0.9.8",
+  "version": "1.0.3",
   "description": "Multi-language broker with RPC and UMQT support.",
   "author": "Arnelify",
   "license": "MIT",
   "main": "build/index.js",
+  "types": "build/index.d.ts",
   "scripts": {
     "install": "neon build --release",
     "build": "clear && neon build --release && tsc",
@@ -19,11 +20,9 @@
     "native/Cargo.toml",
     "native/package.json",
     "native/rustfmt.toml",
-    "src/",
     "LICENSE",
     "package.json",
-    "README.md",
-    "tsconfig.json"
+    "README.md"
   ],
   "devDependencies": {
     "@types/node": "24.10.8",
