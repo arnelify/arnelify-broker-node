@@ -4,7 +4,7 @@
 
 ## 🚀 About
 
-**Arnelify® Server for NodeJS** — a multi-language broker with RPC and UMQT support.
+**Arnelify® Broker for NodeJS** — a multi-language broker with RPC and UMQT support.
 
 All supported protocols:
 | **#** | **Protocol** | **Transport** |
