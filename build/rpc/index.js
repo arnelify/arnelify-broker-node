@@ -156,12 +156,16 @@ class RPCStream {
     constructor() {
         this.topic = "";
         this.request_id = 0n;
+        this.sent = false;
         this.cb_send = async (topic, bytes) => {
             console.log(topic, bytes);
         };
     }
     on_send(cb) {
         this.cb_send = cb;
+    }
+    is_response_sent() {
+        return this.sent;
     }
     async push(payload, bytes, is_reliable = true) {
         const json = Buffer.from(JSON.stringify({
@@ -174,6 +178,7 @@ class RPCStream {
         const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
         const buff = Buffer.concat([meta, json, bytes]);
         await this.cb_send(this.topic, buff);
+        this.sent = true;
     }
     async push_bytes(bytes, is_reliable) {
         const json = Buffer.from(JSON.stringify({
@@ -186,6 +191,7 @@ class RPCStream {
         const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
         const buff = Buffer.concat([meta, json, bytes]);
         await this.cb_send(this.topic, buff);
+        this.sent = true;
     }
     async push_json(payload, is_reliable = false) {
         const json = Buffer.from(JSON.stringify({
@@ -197,6 +203,7 @@ class RPCStream {
         const meta = Buffer.from(`${json.length}+0:`, 'utf8');
         const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
         await this.cb_send(this.topic, buff);
+        this.sent = true;
     }
     async send(topic, payload, bytes, is_reliable = true) {
         const request_id = generate_request_id();
@@ -265,6 +272,9 @@ exports.RPCStream = RPCStream;
 class RPC {
     constructor() {
         this.consumers = new Map();
+        this.topics = [];
+        this.cb_after = async (_ctx, _bytes, _stream) => { };
+        this.cb_before = async (_ctx, _bytes, _stream) => { };
         this.cb_logger = async (_level, message) => {
             console.log(`[Arnelify Broker]: ${message}`);
         };
@@ -277,10 +287,22 @@ class RPC {
                 await consumer(bytes);
         };
     }
+    has_local_topic(topic) {
+        return this.topics.includes(topic);
+    }
     logger(cb) {
         this.cb_logger = cb;
     }
     on(topic, cb) {
+        if (topic === '_after') {
+            this.cb_after = cb;
+            return;
+        }
+        if (topic === '_before') {
+            this.cb_before = cb;
+            return;
+        }
+        this.topics.push(topic);
         const p_req_topic = `req:${topic}`;
         const c_res_topic = `res:${topic}`;
         const p_res_topic = `res:${topic}`;
@@ -298,8 +320,13 @@ class RPC {
                     await this.cb_producer(topic, bytes);
                 });
                 req.reset();
-                // Broker Action
-                await cb(ctx, bytes, stream);
+                await this.cb_before(ctx, bytes, stream);
+                if (!stream.is_response_sent()) {
+                    await cb(ctx, bytes, stream);
+                }
+                if (!stream.is_response_sent()) {
+                    await this.cb_after(ctx, bytes, stream);
+                }
             }
             else if (typeof res === "string") {
                 await this.cb_logger("warning", `Block read error: ${res}`);

@@ -179,6 +179,7 @@ class RPCReq {
 class RPCStream {
   topic: string = "";
   request_id: BigInt = 0n;
+  sent: boolean = false;
 
   cb_send: (topic: string, bytes: Buffer) => Promise<void> =
     async (topic: string, bytes: Buffer): Promise<void> => {
@@ -187,6 +188,10 @@ class RPCStream {
 
   on_send(cb: (topic: string, bytes: Buffer) => Promise<void>): void {
     this.cb_send = cb;
+  }
+
+  is_response_sent(): boolean {
+    return this.sent;
   }
 
   async push(payload: any, bytes: Buffer, is_reliable: boolean = true): Promise<void> {
@@ -201,6 +206,7 @@ class RPCStream {
     const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
     const buff = Buffer.concat([meta, json, bytes]);
     await this.cb_send(this.topic, buff);
+    this.sent = true;
   }
 
   async push_bytes(bytes: Buffer, is_reliable: boolean): Promise<void> {
@@ -215,6 +221,7 @@ class RPCStream {
     const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
     const buff = Buffer.concat([meta, json, bytes]);
     await this.cb_send(this.topic, buff);
+    this.sent = true;
   }
 
   async push_json(payload: any, is_reliable: boolean = false): Promise<void> {
@@ -228,9 +235,15 @@ class RPCStream {
     const meta = Buffer.from(`${json.length}+0:`, 'utf8');
     const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
     await this.cb_send(this.topic, buff);
+    this.sent = true;
   }
 
-  async send(topic: string, payload: any, bytes: Buffer, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
+  async send(
+    topic: string,
+    payload: any,
+    bytes: Buffer,
+    is_reliable: boolean = true
+  ): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
     const req_topic: string = `req:${topic}`;
 
@@ -254,7 +267,11 @@ class RPCStream {
     return response;
   }
 
-  async send_bytes(topic: string, bytes: Buffer, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
+  async send_bytes(
+    topic: string,
+    bytes: Buffer,
+    is_reliable: boolean = true
+  ): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
     const req_topic: string = `req:${topic}`;
 
@@ -278,7 +295,11 @@ class RPCStream {
     return response;
   }
 
-  async send_json(topic: string, payload: any, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
+  async send_json(
+    topic: string,
+    payload: any,
+    is_reliable: boolean = true
+  ): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
     const req_topic: string = `req:${topic}`;
 
@@ -318,7 +339,12 @@ type BrokerConsumerHandler = (topic: string, cb: BrokerConsumer) => void;
 type BrokerProducer = (topic: string, bytes: BrokerBytes) => Promise<void>;
 
 class RPC {
+
   consumers: Map<string, BrokerConsumer> = new Map();
+  topics: string[] = [];
+
+  cb_after: RPCAction = async (_ctx: BrokerCtx, _bytes: BrokerBytes, _stream: RPCStream) => { };
+  cb_before: RPCAction = async (_ctx: BrokerCtx, _bytes: BrokerBytes, _stream: RPCStream) => { };
 
   cb_logger: RPCLogger = async (_level: string, message: string): Promise<void> => {
     console.log(`[Arnelify Broker]: ${message}`);
@@ -333,11 +359,26 @@ class RPC {
     if (consumer) await consumer(bytes);
   };
 
+  has_local_topic(topic: string): boolean {
+    return this.topics.includes(topic);
+  }
+
   logger(cb: RPCLogger): void {
     this.cb_logger = cb;
   }
 
   on(topic: string, cb: RPCAction): void {
+    if (topic === '_after') {
+      this.cb_after = cb;
+      return;
+    }
+
+    if (topic === '_before') {
+      this.cb_before = cb;
+      return;
+    }
+
+    this.topics.push(topic);
     const p_req_topic: string = `req:${topic}`;
     const c_res_topic: string = `res:${topic}`;
     const p_res_topic: string = `res:${topic}`;
@@ -345,7 +386,7 @@ class RPC {
     const req_consumer: BrokerConsumer = async (bytes: BrokerBytes): Promise<void> => {
       const req: RPCReq = new RPCReq();
       req.add(bytes);
-      
+
       const res: null | string | number = req.read_block();
       if (res === 1) {
         const ctx = req.get_ctx();
@@ -358,9 +399,14 @@ class RPC {
         });
 
         req.reset();
+        await this.cb_before(ctx, bytes, stream);
+        if (!stream.is_response_sent()) {
+          await cb(ctx, bytes, stream);
+        }
 
-        // Broker Action
-        await cb(ctx, bytes, stream);
+        if (!stream.is_response_sent()) {
+          await this.cb_after(ctx, bytes, stream);
+        }
 
       } else if (typeof res === "string") {
         await this.cb_logger("warning", `Block read error: ${res}`);
@@ -389,69 +435,85 @@ class RPC {
     this.cb_consumer(p_res_topic, res_consumer);
   }
 
-  async send(topic: string, payload: any, bytes: Buffer, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
+  async send(
+    topic: string,
+    payload: any,
+    bytes: Buffer,
+    is_reliable: boolean = true
+  ): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
     const req_topic: string = `req:${topic}`;
 
-    const response: Record<string, BrokerCtx | BrokerBytes> = await new Promise((resolve) => {
-      MAP.set(request_id, resolve);
-      const json = Buffer.from(JSON.stringify({
-        topic: req_topic,
-        request_id: String(request_id),
-        payload,
-        reliable: is_reliable
-      }));
+    const response: Record<string, BrokerCtx | BrokerBytes> =
+      await new Promise((resolve): void => {
+        MAP.set(request_id, resolve);
+        const json = Buffer.from(JSON.stringify({
+          topic: req_topic,
+          request_id: String(request_id),
+          payload,
+          reliable: is_reliable
+        }));
 
-      bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
-      const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
-      const buff = Buffer.concat([meta, json, bytes]);
-      this.cb_producer(req_topic, buff);
-    });
+        bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
+        const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
+        const buff = Buffer.concat([meta, json, bytes]);
+        this.cb_producer(req_topic, buff);
+      });
 
     MAP.delete(request_id);
     return response;
   }
 
-  async send_bytes(topic: string, bytes: Buffer, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
+  async send_bytes(
+    topic: string,
+    bytes: Buffer,
+    is_reliable: boolean = true
+  ): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
     const req_topic: string = `req:${topic}`;
 
-    const response: Record<string, BrokerCtx | BrokerBytes> = await new Promise((resolve) => {
-      MAP.set(request_id, resolve);
-      const json = Buffer.from(JSON.stringify({
-        topic: req_topic,
-        request_id: String(request_id),
-        payload: "<bytes>",
-        reliable: is_reliable
-      }));
+    const response: Record<string, BrokerCtx | BrokerBytes> =
+      await new Promise((resolve): void => {
+        MAP.set(request_id, resolve);
+        const json = Buffer.from(JSON.stringify({
+          topic: req_topic,
+          request_id: String(request_id),
+          payload: "<bytes>",
+          reliable: is_reliable
+        }));
 
-      bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
-      const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
-      const buff = Buffer.concat([meta, json, bytes]);
-      this.cb_producer(req_topic, buff);
-    });
+        bytes = bytes ? Buffer.from(bytes) : Buffer.alloc(0);
+        const meta = Buffer.from(`${json.length}+${bytes.length}:`, 'utf8');
+        const buff = Buffer.concat([meta, json, bytes]);
+        this.cb_producer(req_topic, buff);
+      });
 
     MAP.delete(request_id);
     return response;
   }
 
-  async send_json(topic: string, payload: any, is_reliable: boolean = true): Promise<Record<string, BrokerCtx | BrokerBytes>> {
+  async send_json(
+    topic: string,
+    payload: any,
+    is_reliable: boolean = true
+  ): Promise<Record<string, BrokerCtx | BrokerBytes>> {
     const request_id: BigInt = generate_request_id();
     const req_topic: string = `req:${topic}`;
 
-    const response: Record<string, BrokerCtx | BrokerBytes> = await new Promise((resolve) => {
-      MAP.set(request_id, resolve);
-      const json = Buffer.from(JSON.stringify({
-        topic: req_topic,
-        request_id: String(request_id),
-        payload,
-        reliable: is_reliable
-      }));
+    const response: Record<string, BrokerCtx | BrokerBytes> =
+      await new Promise((resolve): void => {
+        MAP.set(request_id, resolve);
+        const json = Buffer.from(JSON.stringify({
+          topic: req_topic,
+          request_id: String(request_id),
+          payload,
+          reliable: is_reliable
+        }));
 
-      const meta = Buffer.from(`${json.length}+0:`, 'utf8');
-      const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
-      this.cb_producer(req_topic, buff);
-    });
+        const meta = Buffer.from(`${json.length}+0:`, 'utf8');
+        const buff = Buffer.concat([meta, json, Buffer.alloc(0)]);
+        this.cb_producer(req_topic, buff);
+      });
 
     MAP.delete(request_id);
     return response;

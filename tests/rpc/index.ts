@@ -3,7 +3,7 @@ import { BrokerBytes, BrokerCtx, RPC, RPCStream } from "../../build";
 (async function main() {
 
   const rpc = new RPC();
-  rpc.logger(async (level: string, message: string): Promise<void> => {
+  rpc.logger(async (_level: string, message: string): Promise<void> => {
     console.log(`[Arnelify Broker]: ${message}`);
   });
 
@@ -15,10 +15,10 @@ import { BrokerBytes, BrokerCtx, RPC, RPCStream } from "../../build";
     await stream.push(ctx, bytes);
   });
 
-  const message = { message: "Hello World" };
+  const message = "Hello World";
   const json: Record<string, any> = { message };
-  const buff: Buffer = Buffer.from("Hello World");
-  
+  const buff: Buffer = Buffer.from(message);
+
   const { ctx, bytes } = await rpc.send("connect", json, buff, true);
 
   console.log("ctx: ", JSON.stringify(ctx));

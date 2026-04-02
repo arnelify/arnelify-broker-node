@@ -1,6 +1,6 @@
 {
   "name": "arnelify-broker",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Multi-language broker with RPC and UMQT support.",
   "author": "Arnelify",
   "license": "MIT",
@@ -14,7 +14,6 @@
   },
   "files": [
     "build/",
-    "native/src/",
     "native/artifacts.json",
     "native/Cargo.lock",
     "native/Cargo.toml",
