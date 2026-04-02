@@ -1,6 +1,6 @@
 <img src="https://static.wikia.nocookie.net/arnelify/images/c/c8/Arnelify-logo-2024.png/revision/latest?cb=20240701012515" style="width:336px;" alt="Arnelify Logo" />
 
-![Arnelify Broker for NodeJS](https://img.shields.io/badge/Arnelify%20Broker%20for%20NodeJS-1.0.4-yellow) ![NodeJS](https://img.shields.io/badge/NodeJS-24.14.1-green) ![Bun](https://img.shields.io/badge/Bun-1.3.6-blue)
+![Arnelify Broker for NodeJS](https://img.shields.io/badge/Arnelify%20Broker%20for%20NodeJS-1.0.5-yellow) ![NodeJS](https://img.shields.io/badge/NodeJS-24.14.1-green) ![Bun](https://img.shields.io/badge/Bun-1.3.6-blue)
 
 ## 🚀 About
 
@@ -128,7 +128,7 @@ yarn test_umqt
 ```
 
 ## ⭐ Release Notes
-Version 1.0.4 — a multi-language broker with RPC and UMQT support.
+Version 1.0.5 — a multi-language broker with RPC and UMQT support.
 
 We are excited to introduce the Arnelify Broker for NodeJS! Please note that this version is raw and still in active development.
 
